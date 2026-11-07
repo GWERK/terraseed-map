@@ -19,19 +19,61 @@ export class ChunkRenderer{
   constructor(world,store){this.world=world;this.store=store;this.memory=new Map();this.inflight=new Map();}
   setWorld(world){this.world=world;this.memory.clear();this.inflight.clear();}
   key(cx,cy,lod,options={}){return `${this.world.seed}:${this.world.revision}:${lod}:${options.trees!==false?1:0}:${options.biomes!==false?1:0}:${options.coast!==false?1:0}:${cx}:${cy}`;}
-  async getChunk(cx,cy,lod,{trees=true,biomes=true}={}){
-    const key=this.key(cx,cy,lod,options);
-    if(this.memory.has(key))return this.memory.get(key);
-    if(this.inflight.has(key))return this.inflight.get(key);
-    const task=(async()=>{
-      const cached=await this.store.get(key);
-      if(cached){const bmp=await createImageBitmap(cached);this.memory.set(key,bmp);return bmp;}
-      const bmp=await this.generate(cx,cy,lod,{trees,biomes});
-      if(bmp.convertToBlob){const blob=await bmp.convertToBlob({type:"image/webp",quality:.88});this.store.put(key,blob);}
-      else if(bmp.toBlob)bmp.toBlob(blob=>blob&&this.store.put(key,blob),"image/webp",.88);
-      this.memory.set(key,bmp);return bmp;
-    })().finally(()=>this.inflight.delete(key));
-    this.inflight.set(key,task);return task;
+  async getChunk(cx, cy, lod, options = {}) {
+  const {
+    trees = true,
+    biomes = true,
+    coast = true
+  } = options;
+
+  const renderOptions = { trees, biomes, coast };
+  const key = this.key(cx, cy, lod, renderOptions);
+
+  if (this.memory.has(key)) {
+    return this.memory.get(key);
+  }
+
+  if (this.inflight.has(key)) {
+    return this.inflight.get(key);
+  }
+
+  const task = (async () => {
+    const cached = await this.store.get(key);
+
+    if (cached) {
+      const bmp = await createImageBitmap(cached);
+      this.memory.set(key, bmp);
+      return bmp;
+    }
+
+    const bmp = await this.generate(
+      cx, cy, lod, renderOptions
+    );
+
+    if (bmp.convertToBlob) {
+      const blob = await bmp.convertToBlob({
+        type: "image/webp",
+        quality: 0.88
+      });
+      this.store.put(key, blob);
+    } else if (bmp.toBlob) {
+      bmp.toBlob(
+        blob => {
+          if (blob) this.store.put(key, blob);
+        },
+        "image/webp",
+        0.88
+      );
+    }
+
+    this.memory.set(key, bmp);
+    return bmp;
+  })().finally(() => {
+    this.inflight.delete(key);
+  });
+
+  this.inflight.set(key, task);
+  return task;
   }
   async generate(cx,cy,lod,{trees=true,biomes=true,coast=true}={}){
     const canvas=document.createElement("canvas");canvas.width=CHUNK_PIXELS;canvas.height=CHUNK_PIXELS;
