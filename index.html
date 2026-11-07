@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101b1b">
+  <title>TerraSeed — 절차적 세계 지도</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">◈</span><div><strong>TerraSeed</strong><small>Procedural World Atlas</small></div></div>
+    <div class="seed-control">
+      <label for="seedInput">세계 시드</label>
+      <input id="seedInput" value="terra-2026" autocomplete="off" spellcheck="false">
+      <button id="randomSeed" class="subtle">무작위</button>
+      <button id="generateBtn" class="primary">세계 생성</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>세계 정보</h2>
+        <div class="stat"><span>가로 × 세로</span><b id="dimensions">계산 중…</b></div>
+        <div class="stat"><span>전체 면적</span><b id="area">—</b></div>
+        <div class="stat"><span>시드 해시</span><b id="seedHash">—</b></div>
+        <div class="stat"><span>현재 좌표</span><b id="coordinates">0, 0 m</b></div>
+        <div class="stat"><span>렌더링 레벨</span><b id="lod">—</b></div>
+      </section>
+
+      <section class="panel">
+        <h2>표시 레이어</h2>
+        <label class="check"><input type="checkbox" id="biomeLayer" checked> 바이옴 색상</label>
+        <label class="check"><input type="checkbox" id="treeLayer" checked> 나무 형태</label>
+        <label class="check"><input type="checkbox" id="coastLayer" checked> 해안선 강조</label>
+        <label class="check"><input type="checkbox" id="gridLayer"> 청크 경계</label>
+      </section>
+
+      <section class="panel">
+        <h2>바이옴 범례</h2>
+        <div class="legend"><i style="--c:#315b39"></i> 숲</div>
+        <div class="legend"><i style="--c:#a6b96b"></i> 평야</div>
+        <div class="legend"><i style="--c:#858477"></i> 산악</div>
+        <div class="legend"><i style="--c:#b7a06d"></i> 언덕</div>
+        <div class="legend"><i style="--c:#4b9ca5"></i> 하천·호수</div>
+        <div class="legend"><i style="--c:#286b91"></i> 바다</div>
+        <div class="legend"><i style="--c:#536d4b"></i> 늪지</div>
+        <div class="legend"><i style="--c:#c2d3d1"></i> 툰드라·극지</div>
+        <div class="legend"><i style="--c:#d5bd83"></i> 사막</div>
+      </section>
+
+      <section class="panel">
+        <h2>청크 캐시</h2>
+        <div class="stat"><span>화면 내 청크</span><b id="visibleChunks">0</b></div>
+        <div class="stat"><span>메모리 캐시</span><b id="memoryChunks">0</b></div>
+        <div class="stat"><span>디스크 캐시</span><b id="diskChunks">IndexedDB</b></div>
+        <button id="clearCache" class="wide subtle">이 시드의 캐시 삭제</button>
+      </section>
+      <p class="hint">마우스 휠: 확대·축소<br>드래그: 지도 이동<br>더블 클릭: 해당 위치 확대</p>
+    </aside>
+
+    <section class="map-shell">
+      <div class="map-toolbar">
+        <div class="toolbar-group">
+          <button id="zoomOut" aria-label="축소">−</button>
+          <button id="zoomIn" aria-label="확대">+</button>
+          <button id="homeBtn">세계 전체</button>
+        </div>
+        <div id="renderStatus" class="render-status">초기화 중</div>
+        <div class="toolbar-group">
+          <button id="refreshBtn">현재 영역 갱신</button>
+        </div>
+      </div>
+      <div id="mapViewport" class="map-viewport">
+        <canvas id="mapCanvas"></canvas>
+        <div id="loadingVeil" class="loading-veil"><span class="spinner"></span><span>지형 타일 계산 중…</span></div>
+        <div class="map-crosshair">＋</div>
+        <div class="scale-bar"><span id="scaleLabel">—</span><i></i></div>
+      </div>
+      <footer class="map-footer">
+        <span>1 지도 픽셀 = 1m (기본 지형 해상도)</span>
+        <span>가상 세계 좌표계 · 청크 단위 스트리밍</span>
+      </footer>
+    </section>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
