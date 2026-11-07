@@ -29,7 +29,10 @@ function screenAt(wx,wy,w,h){const r=viewport.getBoundingClientRect();return {x:
 function clampCenter(){centerX=Math.max(0,Math.min(world.width,centerX));centerY=Math.max(0,Math.min(world.height,centerY));}
 function chooseLod(){return Math.max(0,Math.min(22,Math.round(Math.log2(1/Math.max(zoom,1e-12)))));}
 function scheduleRender(){cancelAnimationFrame(raf);raf=requestAnimationFrame(render);}
-function drawBackground(w,h){ctx.fillStyle="#286b91";ctx.fillRect(0,0,w,h);}
+function drawBackground(w,h){
+  ctx.fillStyle="#000000";
+  ctx.fillRect(0,0,w,h);
+}
 async function render(){
   if(!world||!renderer)return;
   const token=++renderToken,r=viewport.getBoundingClientRect(),w=r.width,h=r.height;
