@@ -22,9 +22,25 @@ function updateInfo(){
   $("lod").textContent=`${Math.max(0,Math.round(Math.log2(1/zoom)))} (${zoom.toExponential(2)} px/m)`;
 }
 function resize(){
-  const dpr=Math.min(devicePixelRatio||1,2),r=viewport.getBoundingClientRect();
-  canvas.width=Math.max(1,Math.floor(r.width*dpr));canvas.height=Math.max(1,Math.floor(r.height*dpr));
-  ctx.setTransform(dpr,0,0,dpr,0,0);scheduleRender();
+  const dpr=Math.min(devicePixelRatio||1,2);
+  const r=viewport.getBoundingClientRect();
+
+  canvas.width=Math.max(1,Math.floor(r.width*dpr));
+  canvas.height=Math.max(1,Math.floor(r.height*dpr));
+
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  if(world){
+    const min=minZoom();
+
+    if(zoom<min){
+      zoom=min;
+      centerX=world.width/2;
+      centerY=world.height/2;
+    }
+  }
+
+  scheduleRender();
 }
 function worldAt(sx,sy){const r=viewport.getBoundingClientRect();return {x:centerX+(sx-r.width/2)/zoom,y:centerY+(sy-r.height/2)/zoom};}
 function screenAt(wx,wy,w,h){const r=viewport.getBoundingClientRect();return {x:r.width/2+(wx-centerX)*zoom,y:r.height/2+(wy-centerY)*zoom};}
@@ -169,10 +185,145 @@ $("refreshBtn").addEventListener("click",()=>{renderer.clearMemory();world.revis
 $("clearCache").addEventListener("click",async()=>{await store.clearSeed(`${world.seed}:`);renderer.clearMemory();scheduleRender();});
 ["biomeLayer","treeLayer","coastLayer","gridLayer"].forEach(id=>$(id).addEventListener("change",()=>{renderer.clearMemory();scheduleRender();}));
 viewport.addEventListener("wheel",e=>{e.preventDefault();const rect=viewport.getBoundingClientRect();setZoom(zoom*Math.exp(-e.deltaY*.0012),e.clientX-rect.left,e.clientY-rect.top);},{passive:false});
-viewport.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,cx:centerX,cy:centerY};viewport.classList.add("dragging");viewport.setPointerCapture(e.pointerId);});
-viewport.addEventListener("pointermove",e=>{if(!drag)return;centerX=drag.cx-(e.clientX-drag.x)/zoom;centerY=drag.cy-(e.clientY-drag.y)/zoom;clampCenter();updateInfo();scheduleRender();});
-function endDrag(){drag=null;viewport.classList.remove("dragging");}
-viewport.addEventListener("pointerup",endDrag);viewport.addEventListener("pointercancel",endDrag);
+// 핀치 제스처 시작
+function beginPinch(){
+  const points=[...activePointers.values()].slice(0,2);
+
+  if(points.length<2)return;
+
+  const rect=viewport.getBoundingClientRect();
+
+  const mx=(points[0].x+points[1].x)/2-rect.left;
+  const my=(points[0].y+points[1].y)/2-rect.top;
+
+  const anchor=worldAt(mx,my);
+
+  pinch={
+    distance:Math.max(1,Math.hypot(
+      points[1].x-points[0].x,
+      points[1].y-points[0].y
+    )),
+    zoom:zoom,
+    worldX:anchor.x,
+    worldY:anchor.y
+  };
+
+  drag=null;
+  viewport.classList.remove("dragging");
+}
+
+// 포인터 시작
+viewport.addEventListener("pointerdown",e=>{
+  activePointers.set(e.pointerId,{
+    x:e.clientX,
+    y:e.clientY
+  });
+
+  viewport.setPointerCapture(e.pointerId);
+
+  if(activePointers.size===1){
+    drag={
+      x:e.clientX,
+      y:e.clientY,
+      cx:centerX,
+      cy:centerY
+    };
+
+    viewport.classList.add("dragging");
+  }else{
+    beginPinch();
+  }
+});
+
+// 포인터 이동
+viewport.addEventListener("pointermove",e=>{
+  if(!activePointers.has(e.pointerId))return;
+
+  activePointers.set(e.pointerId,{
+    x:e.clientX,
+    y:e.clientY
+  });
+
+  // 두 손가락 이상이면 핀치 확대·축소
+  if(activePointers.size>=2){
+
+    if(!pinch)beginPinch();
+
+    const points=[...activePointers.values()].slice(0,2);
+    const rect=viewport.getBoundingClientRect();
+
+    const mx=(points[0].x+points[1].x)/2-rect.left;
+    const my=(points[0].y+points[1].y)/2-rect.top;
+
+    const distance=Math.max(1,Math.hypot(
+      points[1].x-points[0].x,
+      points[1].y-points[0].y
+    ));
+
+    const min=minZoom();
+
+    zoom=Math.max(
+      min,
+      Math.min(4,pinch.zoom*distance/pinch.distance)
+    );
+
+    // 핀치 중심의 지형 위치 유지
+    if(zoom<=min*(1+1e-9)){
+      centerX=world.width/2;
+      centerY=world.height/2;
+    }else{
+      centerX=pinch.worldX-(mx-rect.width/2)/zoom;
+      centerY=pinch.worldY-(my-rect.height/2)/zoom;
+      clampCenter();
+    }
+
+    updateInfo();
+    scheduleRender();
+    return;
+  }
+
+  // 한 손가락 또는 마우스 드래그
+  if(!drag)return;
+
+  centerX=drag.cx-(e.clientX-drag.x)/zoom;
+  centerY=drag.cy-(e.clientY-drag.y)/zoom;
+
+  clampCenter();
+  updateInfo();
+  scheduleRender();
+});
+
+// 포인터 종료
+function endPointer(e){
+  activePointers.delete(e.pointerId);
+
+  if(activePointers.size>=2){
+    beginPinch();
+    return;
+  }
+
+  pinch=null;
+
+  if(activePointers.size===1){
+    const point=[...activePointers.values()][0];
+
+    // 핀치 종료 후 남은 손가락으로 지도 이동 가능
+    drag={
+      x:point.x,
+      y:point.y,
+      cx:centerX,
+      cy:centerY
+    };
+
+    viewport.classList.add("dragging");
+  }else{
+    drag=null;
+    viewport.classList.remove("dragging");
+  }
+}
+
+viewport.addEventListener("pointerup",endPointer);
+viewport.addEventListener("pointercancel",endPointer);
 viewport.addEventListener("dblclick",e=>{const rect=viewport.getBoundingClientRect();setZoom(zoom*2.2,e.clientX-rect.left,e.clientY-rect.top);});
 new ResizeObserver(resize).observe(viewport);
 window.addEventListener("keydown",e=>{if(e.key==="+"||e.key==="=")setZoom(zoom*1.5);if(e.key==="-")setZoom(zoom/1.5);});
