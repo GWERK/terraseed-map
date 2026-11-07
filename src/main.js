@@ -49,19 +49,54 @@ async function render(){
     jobs.push({cx,cy});
   }
   // Draw completed chunks as soon as each is ready. Stale renders never paint over a newer view.
-  let done=0;
-  await Promise.all(jobs.map(async({cx,cy})=>{
-    try{
-      const bmp=await renderer.getChunk(cx,cy,lod,settings());
-      if(token!==renderToken)return;
-      const x=cx*chunkWorld,y=cy*chunkWorld,p=screenAt(x,y, w,h);
-      const size=chunkWorld*zoom;
-      ctx.imageSmoothingEnabled=lod>0||zoom<.7;
-      ctx.drawImage(bmp,p.x,p.y,size,size);
-      if($("gridLayer").checked){ctx.strokeStyle="#ffffff22";ctx.lineWidth=1;ctx.strokeRect(p.x,p.y,size,size);}
-    }catch(err){console.error("chunk render failed",err);}
-    done++;if(token===renderToken)$("renderStatus").textContent=`청크 ${done}/${jobs.length} 로드`;
-  }));
+  
+let done = 0;
+let firstError = null;
+
+await Promise.all(jobs.map(async ({cx, cy}) => {
+  try {
+    const bmp = await renderer.getChunk(
+      cx, cy, lod, settings()
+    );
+
+    if (token !== renderToken) return;
+
+    const x = cx * chunkWorld;
+    const y = cy * chunkWorld;
+    const p = screenAt(x, y, w, h);
+    const size = chunkWorld * zoom;
+
+    ctx.imageSmoothingEnabled = lod > 0 || zoom < 0.7;
+    ctx.drawImage(bmp, p.x, p.y, size, size);
+
+    if ($("gridLayer").checked) {
+      ctx.strokeStyle = "#ffffff22";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(p.x, p.y, size, size);
+    }
+
+  } catch (err) {
+    console.error("chunk render failed", err);
+
+    if (!firstError) {
+      firstError = err;
+    }
+  }
+
+  done++;
+
+  if (token === renderToken) {
+    if (firstError) {
+      $("renderStatus").textContent =
+        "렌더 오류: " +
+        (firstError.message || String(firstError));
+    } else {
+      $("renderStatus").textContent =
+        `청크 ${done}/${jobs.length} 로드`;
+    }
+  }
+}));
+
   if(token===renderToken){
     veil.classList.remove("visible");$("memoryChunks").textContent=String(renderer.memoryCount);
     updateInfo();drawScale(w,h);
