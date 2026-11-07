@@ -156,7 +156,13 @@ $("generateBtn").addEventListener("click",()=>newWorld($("seedInput").value.trim
 $("randomSeed").addEventListener("click",()=>{$("seedInput").value=`terra-${crypto.getRandomValues(new Uint32Array(2)).join("-")}`;});
 $("zoomIn").addEventListener("click",()=>setZoom(zoom*1.8));
 $("zoomOut").addEventListener("click",()=>setZoom(zoom/1.8));
-$("homeBtn").addEventListener("click",()=>{zoom=Math.min(viewport.clientWidth/world.width,viewport.clientHeight/world.height)*.88;centerX=world.width/2;centerY=world.height/2;scheduleRender();});
+$("homeBtn").addEventListener("click",()=>{
+  zoom=minZoom();
+  centerX=world.width/2;
+  centerY=world.height/2;
+  updateInfo();
+  scheduleRender();
+});
 $("refreshBtn").addEventListener("click",()=>{renderer.clearMemory();world.revision++;renderer.setWorld(world);scheduleRender();});
 $("clearCache").addEventListener("click",async()=>{await store.clearSeed(`${world.seed}:`);renderer.clearMemory();scheduleRender();});
 ["biomeLayer","treeLayer","coastLayer","gridLayer"].forEach(id=>$(id).addEventListener("change",()=>{renderer.clearMemory();scheduleRender();}));
