@@ -8,7 +8,9 @@ const $=id=>document.getElementById(id);
 const canvas=$("mapCanvas"),ctx=canvas.getContext("2d");
 const viewport=$("mapViewport"),veil=$("loadingVeil");
 const store=new ChunkStore(),events=new TerrainEventStore();
-let world,renderer,centerX=0,centerY=0,zoom=.00000008,raf=0,drag=null,renderToken=0;
+let world,renderer,centerX=0,centerY=0,zoom=.00000008,raf=0,drag=null,pinch=null,renderToken=0;
+
+const activePointers=new Map();
 const memoryLimit=180;
 const settings=()=>({trees:$("treeLayer").checked,biomes:$("biomeLayer").checked,coast:$("coastLayer").checked});
 function fmt(n){return new Intl.NumberFormat("ko-KR",{maximumFractionDigits:0}).format(n);}
