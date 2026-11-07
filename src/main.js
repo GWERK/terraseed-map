@@ -27,6 +27,15 @@ function resize(){
 function worldAt(sx,sy){const r=viewport.getBoundingClientRect();return {x:centerX+(sx-r.width/2)/zoom,y:centerY+(sy-r.height/2)/zoom};}
 function screenAt(wx,wy,w,h){const r=viewport.getBoundingClientRect();return {x:r.width/2+(wx-centerX)*zoom,y:r.height/2+(wy-centerY)*zoom};}
 function clampCenter(){centerX=Math.max(0,Math.min(world.width,centerX));centerY=Math.max(0,Math.min(world.height,centerY));}
+// 세계 전체가 화면에 들어오는 최소 확대율
+function minZoom(){
+  const r=viewport.getBoundingClientRect();
+
+  return Math.min(
+    r.width/world.width,
+    r.height/world.height
+  );
+}
 function chooseLod(){return Math.max(0,Math.min(22,Math.round(Math.log2(1/Math.max(zoom,1e-12)))));}
 function scheduleRender(){cancelAnimationFrame(raf);raf=requestAnimationFrame(render);}
 function drawBackground(w,h){
@@ -113,17 +122,34 @@ function drawScale(w,h){
   $("scaleLabel").textContent=value>=1000?`${fmt(value/1000)} km`:`${fmt(value)} m`;
 }
 function setZoom(next,anchorX,anchorY){
-  const before=worldAt(anchorX??viewport.clientWidth/2,anchorY??viewport.clientHeight/2);
-  zoom=Math.max(1e-10,Math.min(4,next));
   const r=viewport.getBoundingClientRect();
-  centerX=before.x-( (anchorX??r.width/2)-r.width/2)/zoom;
-  centerY=before.y-( (anchorY??r.height/2)-r.height/2)/zoom;
-  clampCenter();updateInfo();scheduleRender();
+
+  const ax=anchorX??r.width/2;
+  const ay=anchorY??r.height/2;
+
+  const before=worldAt(ax,ay);
+  const min=minZoom();
+
+  zoom=Math.max(min,Math.min(4,next));
+
+  // 최대 축소 상태에서는 세계를 정중앙에 배치
+  if(zoom<=min*(1+1e-9)){
+    centerX=world.width/2;
+    centerY=world.height/2;
+  }else{
+    centerX=before.x-(ax-r.width/2)/zoom;
+    centerY=before.y-(ay-r.height/2)/zoom;
+    clampCenter();
+  }
+
+  updateInfo();
+  scheduleRender();
 }
 function newWorld(seed){
   world=createWorld(seed);renderer?.clearMemory();renderer=new ChunkRenderer(world,store);
-  zoom=Math.min(viewport.clientWidth/world.width,viewport.clientHeight/world.height)*.88;
-  zoom=Math.max(1e-10,zoom);centerX=world.width/2;centerY=world.height/2;
+  zoom=minZoom();
+  centerX=world.width/2;
+  centerY=world.height/2;
   updateInfo();scheduleRender();
 }
 $("generateBtn").addEventListener("click",()=>newWorld($("seedInput").value.trim()||"terra"));
